@@ -1,0 +1,16 @@
+// Opciones de íconos de usuario:
+Icons.person                    // 👤 Usuario simple
+Icons.person_outline            // 👤 Usuario solo borde
+Icons.person_add                // 👤+ Usuario con signo +
+Icons.person_add_alt_1          // 👤+ Usuario con signo + (el que usé)
+Icons.account_circle            // 👤 Círculo con usuario
+Icons.face                      // 😀 Cara feliz
+Icons.badge                     // 🏅 Insignia
+
+
+
+curl -X POST http://127.0.0.1:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email": "tu@email.com", "password": "tupassword"}'
+
+  flutter run -d chrome --web-port 3000
