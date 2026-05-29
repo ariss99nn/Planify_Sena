@@ -56,7 +56,7 @@ class MyApp extends StatelessWidget {
           final segments = uri.pathSegments;
 
           // /reset-password/TOKEN — viene del email
-          if (segments.length == 2 && segments.first == 'reset-password') {
+          if (segments.first == 'reset-password') {
             return MaterialPageRoute(
               builder: (_) => ResetPasswordScreen(),
               settings: RouteSettings(
