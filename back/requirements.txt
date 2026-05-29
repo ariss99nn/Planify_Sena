@@ -1,3 +1,7 @@
+# Common dependencies for both Linux and Windows
+# Install Linux-specific packages with requirements-linux.txt
+# Install Windows-specific packages with requirements-windows.txt
+
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5
 aiosignal==1.4.0
@@ -157,7 +161,6 @@ uritemplate==4.2.0
 urllib3==2.6.3
 uuid_utils==0.14.1
 uvicorn==0.46.0
-uvloop==0.22.1
 vine==5.1.0
 watchfiles==1.1.1
 wcwidth==0.7.0

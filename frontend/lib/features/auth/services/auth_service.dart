@@ -103,13 +103,13 @@ class AuthService {
   // PASSWORD RESET CONFIRM
   // =========================
   static Future<void> confirmPasswordReset({
-    required String token,
+    required String code,
     required String password,
   }) async {
     await ApiService.post(
       '/auth/password-reset/confirm/',
       data: {
-        'token':    token,
+        'code':     code.trim(),
         'password': password,
       },
     );

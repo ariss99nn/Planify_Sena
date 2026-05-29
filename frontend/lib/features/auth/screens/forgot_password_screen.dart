@@ -24,14 +24,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await AuthService.requestPasswordReset(emailCtrl.text.trim());
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Si el correo existe, recibirás instrucciones.'),
-          backgroundColor: AppTheme.greenPrimary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context);
+      
+      // Navega inmediatamente a reset_password_screen sin pasar código
+      // El usuario ingresará el código manualmente que recibió por email
+      Navigator.of(context).pushReplacementNamed('/reset-password');
+      
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

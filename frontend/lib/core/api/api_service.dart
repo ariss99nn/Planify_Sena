@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
-/// Excepción tipada que preserva el código de error del backend.
 class ApiException implements Exception {
   final String message;
   final String? code;
@@ -19,8 +19,76 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  // Cambiar por variable de entorno o flavor en producción
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String _defaultApiPath = '/api';
+  // static const String _androidEmulatorHost = '10.0.2.2';
+
+  static final String _environmentBaseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
+  static String? _overrideBaseUrl;
+
+  /// Configura la URL base en tiempo de ejecuci�n.
+  ///
+  /// Ejemplo:
+  /// `ApiService.configure(baseUrl: 'http://192.168.0.10:8000');`
+  static void configure({String? baseUrl}) {
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      _overrideBaseUrl = _ensureApiPath(baseUrl);
+    }
+  }
+
+  static String get baseUrl {
+    if (_overrideBaseUrl != null && _overrideBaseUrl!.isNotEmpty) {
+      return _overrideBaseUrl!;
+    }
+    if (_environmentBaseUrl.isNotEmpty) {
+      return _ensureApiPath(_environmentBaseUrl);
+    }
+    return _resolveBaseUrl();
+  }
+
+  static String _resolveBaseUrl() {
+  if (kIsWeb) {
+    // En web, las peticiones van al mismo origen si el backend está en el mismo servidor
+    // En desarrollo local, el frontend Flutter web corre en localhost también
+    return 'http://localhost:8000$_defaultApiPath';
+  }
+
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    // Emulador usa 10.0.2.2, dispositivo físico necesita IP real
+    // Sin configure() o --dart-define, esto fallará en físico
+    return 'http://192.168.10.27:8000$_defaultApiPath';
+  }
+
+  if (defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS) {
+    return 'http://localhost:8000$_defaultApiPath';
+  }
+
+  // Windows / Linux desktop
+  return 'http://localhost:8000$_defaultApiPath';
+}
+
+  static String _ensureApiPath(String url) {
+    var normalized = url.trim();
+    if (normalized.endsWith('/')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    if (normalized.endsWith(_defaultApiPath)) {
+      return normalized;
+    }
+    return '$normalized$_defaultApiPath';
+  }
+
+  static Uri _buildUri(String endpoint, [Map<String, String>? queryParams]) {
+    final normalizedBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final normalizedEndpoint = endpoint.startsWith('/') ? endpoint : '/$endpoint';
+
+    return Uri.parse('$normalizedBase$normalizedEndpoint').replace(
+      queryParameters: queryParams?.isNotEmpty == true ? queryParams : null,
+    );
+  }
 
   static Map<String, String> _headers({String? token}) {
     return {
@@ -29,16 +97,12 @@ class ApiService {
     };
   }
 
-  // ===================== GET =====================
-  // CAMBIO: agregado queryParams opcional para filtros y paginación
   static Future<dynamic> get(
     String endpoint, {
     String? token,
     Map<String, String>? queryParams,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint').replace(
-      queryParameters: queryParams?.isNotEmpty == true ? queryParams : null,
-    );
+    final uri = _buildUri(endpoint, queryParams);
     final response = await http.get(uri, headers: _headers(token: token));
 
     if (response.statusCode == 401 && token != null) {
@@ -51,13 +115,12 @@ class ApiService {
     return _handle(response);
   }
 
-  // ===================== POST =====================
   static Future<dynamic> post(
     String endpoint, {
     Map<String, dynamic>? data,
     String? token,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final uri = _buildUri(endpoint);
     final body = jsonEncode(data);
     final response = await http.post(
       uri,
@@ -76,13 +139,12 @@ class ApiService {
     return _handle(response);
   }
 
-  // ===================== PATCH =====================
   static Future<dynamic> patch(
     String endpoint, {
     Map<String, dynamic>? data,
     String? token,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final uri = _buildUri(endpoint);
     final body = jsonEncode(data);
     final response = await http.patch(
       uri,
@@ -101,9 +163,8 @@ class ApiService {
     return _handle(response);
   }
 
-  // ===================== DELETE =====================
   static Future<dynamic> delete(String endpoint, {String? token}) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final uri = _buildUri(endpoint);
     final response = await http.delete(uri, headers: _headers(token: token));
 
     if (response.statusCode == 401 && token != null) {
@@ -116,10 +177,8 @@ class ApiService {
     return _handle(response);
   }
 
-  // ===================== HANDLE =====================
   static dynamic _handle(http.Response response) {
-    final body =
-        response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
@@ -149,7 +208,6 @@ class ApiService {
     return 'Error desconocido';
   }
 
-  // ===================== RETRY =====================
   static Future<dynamic> _retry(
     Future<http.Response> Function(String newToken) requestFn,
   ) async {
@@ -158,14 +216,14 @@ class ApiService {
     if (refresh == null) {
       await TokenStorage.clear();
       throw ApiException(
-        message: 'Sesión expirada. Inicia sesión nuevamente.',
+        message: 'Sesi�n expirada. Inicia sesi�n nuevamente.',
         statusCode: 401,
         code: 'session_expired',
       );
     }
 
     final refreshResponse = await http.post(
-      Uri.parse('$baseUrl/auth/refresh/'),
+      _buildUri('/auth/refresh/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'refresh': refresh}),
     );
@@ -173,7 +231,7 @@ class ApiService {
     if (refreshResponse.statusCode != 200) {
       await TokenStorage.clear();
       throw ApiException(
-        message: 'Sesión expirada. Inicia sesión nuevamente.',
+        message: 'Sesi�n expirada. Inicia sesi�n nuevamente.',
         statusCode: 401,
         code: 'session_expired',
       );

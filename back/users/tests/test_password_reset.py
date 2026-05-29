@@ -47,7 +47,7 @@ class PasswordResetConfirmViewTest(TestCase):
         user = make_user(email='confirm@test.com')
         reset = make_password_reset(user)
         response = self.client.post('/api/auth/password-reset/confirm/', {
-            'token': str(reset.token),
+            'code': reset.code,
             'password': 'NuevaPass123!',
         }, format='json')
         self.assertEqual(response.status_code, 200)
@@ -56,7 +56,7 @@ class PasswordResetConfirmViewTest(TestCase):
 
     def test_token_invalido(self):
         response = self.client.post('/api/auth/password-reset/confirm/', {
-            'token': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            'code': '000000',
             'password': 'NuevaPass123!',
         }, format='json')
         self.assertEqual(response.status_code, 400)
@@ -65,7 +65,7 @@ class PasswordResetConfirmViewTest(TestCase):
         user = make_user(email='expired@test.com')
         reset = make_password_reset(user, expired=True)
         response = self.client.post('/api/auth/password-reset/confirm/', {
-            'token': str(reset.token),
+            'code': reset.code,
             'password': 'NuevaPass123!',
         }, format='json')
         self.assertEqual(response.status_code, 400)
@@ -74,7 +74,7 @@ class PasswordResetConfirmViewTest(TestCase):
         user = make_user(email='used@test.com')
         reset = make_password_reset(user, used=True)
         response = self.client.post('/api/auth/password-reset/confirm/', {
-            'token': str(reset.token),
+            'code': reset.code,
             'password': 'NuevaPass123!',
         }, format='json')
         self.assertEqual(response.status_code, 400)
@@ -83,7 +83,7 @@ class PasswordResetConfirmViewTest(TestCase):
         user = make_user(email='simple@test.com')
         reset = make_password_reset(user)
         response = self.client.post('/api/auth/password-reset/confirm/', {
-            'token': str(reset.token),
+            'code': reset.code,
             'password': '1234',
         }, format='json')
         self.assertEqual(response.status_code, 400)

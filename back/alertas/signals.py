@@ -8,39 +8,63 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender='bhorario.BloqueHorario')
 def detectar_conflictos_horario(sender, instance, created, **kwargs):
     """
-    Al crear o modificar un BloqueHorario, el sistema detecta conflictos
-    y genera alertas automáticamente para el docente y para IsManager.
+    Al crear un BloqueHorario detecta solapamientos y genera UNA sola
+    alerta consolidada por docente. También notifica a coordinadores/admins.
     """
-    if not created:
+    if not created or not instance.docente_id:
         return
 
     from alertas.models.alerta_model import Alerta
+    from users.models.user import User
 
-    # Conflicto de docente
-    if instance.docente_id:
-        from bhorario.models.bloque_horario_model import BloqueHorario
-        conflictos = BloqueHorario.objects.filter(
-            dia_semana=instance.dia_semana,
-            docente=instance.docente,
-            hora_inicio__lt=instance.hora_fin,
-            hora_fin__gt=instance.hora_inicio,
-        ).exclude(pk=instance.pk)
+    conflictos = sender.objects.filter(
+        dia_semana=instance.dia_semana,
+        docente=instance.docente,
+        hora_inicio__lt=instance.hora_fin,
+        hora_fin__gt=instance.hora_inicio,
+    ).exclude(pk=instance.pk)
 
-        for conflicto in conflictos:
-            Alerta.objects.create(
-                tipo=Alerta.TipoAlerta.CONFLICTO,
-                descripcion=(
-                    f"Conflicto de horario: docente {instance.docente} "
-                    f"tiene bloques solapados el {instance.get_dia_semana_display()} "
-                    f"{instance.hora_inicio} - {instance.hora_fin}."
-                ),
-                bloque_origen=instance,
-                destinatario=instance.docente.user,
-                formato_alerta=Alerta.FormatoAlerta.APP,
-            )
-            logger.warning(
-                "Conflicto detectado: Docente %s — bloques %s y %s",
-                instance.docente,
-                instance.pk,
-                conflicto.pk,
-            )
+    if not conflictos.exists():
+        return
+
+    ids_conflicto = ', '.join(str(c.pk) for c in conflictos)
+    descripcion_base = (
+        f"Conflicto de horario: el docente {instance.docente} "
+        f"tiene bloques solapados el {instance.get_dia_semana_display()} "
+        f"{instance.hora_inicio:%H:%M} – {instance.hora_fin:%H:%M}. "
+        f"Bloques en conflicto: #{ids_conflicto}."
+    )
+
+    logger.warning(
+        "Conflicto detectado — Docente %s | bloque nuevo: %s | solapados: %s",
+        instance.docente,
+        instance.pk,
+        ids_conflicto,
+    )
+
+    # Alerta para el docente
+    Alerta.objects.create(
+        tipo=Alerta.TipoAlerta.CONFLICTO,
+        descripcion=descripcion_base,
+        bloque_origen=instance,
+        destinatario=instance.docente.user,
+        formato_alerta=Alerta.FormatoAlerta.APP,
+    )
+
+    # Alerta para cada coordinador/admin activo
+    gestores = User.objects.filter(
+        rol__in=[User.Rol.COORDINADOR, User.Rol.ADMIN],
+        is_active=True,
+    )
+    alertas_gestores = [
+        Alerta(
+            tipo=Alerta.TipoAlerta.CONFLICTO,
+            descripcion=descripcion_base,
+            bloque_origen=instance,
+            destinatario=gestor,
+            formato_alerta=Alerta.FormatoAlerta.APP,
+        )
+        for gestor in gestores
+    ]
+    if alertas_gestores:
+        Alerta.objects.bulk_create(alertas_gestores)

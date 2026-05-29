@@ -58,11 +58,12 @@ def make_verification(user, expired=False, used=False):
     )
 
 
-def make_password_reset(user, expired=False, used=False):
+def make_password_reset(user, expired=False, used=False, code='123456'):
     delta = -30 if expired else 60
     return PasswordReset.objects.create(
         user=user,
         token=uuid.uuid4(),
+        code=code,
         expires_at=timezone.now() + timedelta(minutes=delta),
         is_used=used,
     )

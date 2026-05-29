@@ -1,13 +1,17 @@
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
+
+logger = logging.getLogger(__name__)
+
+_MANAGERS_GROUP = 'alertas_managers'
 
 
 class AlertaConsumer(AsyncWebsocketConsumer):
     """
     WebSocket consumer para alertas en tiempo real.
-    Cada usuario autenticado se conecta a su propio grupo personal.
-    IsManager se conecta además al grupo 'managers' para alertas globales.
+    Cada usuario autenticado escucha su grupo personal.
+    Coordinadores y admins escuchan además el grupo de managers.
     """
 
     async def connect(self):
@@ -16,17 +20,15 @@ class AlertaConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        self.user_group = f'alertas_user_{user.pk}'
-        await self.channel_layer.group_add(
-            self.user_group, self.channel_name
-        )
-
-        # IsManager recibe alertas de conflicto del sistema
         from users.models.user import User
-        if user.rol in {User.Rol.COORDINADOR, User.Rol.ADMIN}:
-            await self.channel_layer.group_add(
-                'alertas_managers', self.channel_name
-            )
+
+        self.user_group   = f'alertas_user_{user.pk}'
+        self.is_manager   = user.rol in {User.Rol.COORDINADOR, User.Rol.ADMIN}
+
+        await self.channel_layer.group_add(self.user_group, self.channel_name)
+
+        if self.is_manager:
+            await self.channel_layer.group_add(_MANAGERS_GROUP, self.channel_name)
 
         await self.accept()
         await self.send(json.dumps({
@@ -39,29 +41,36 @@ class AlertaConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_discard(
                 self.user_group, self.channel_name
             )
-        await self.channel_layer.group_discard(
-            'alertas_managers', self.channel_name
-        )
+        # Solo abandona managers si realmente se unió
+        if getattr(self, 'is_manager', False):
+            await self.channel_layer.group_discard(
+                _MANAGERS_GROUP, self.channel_name
+            )
 
     async def receive(self, text_data):
-        # El cliente solo escucha — no envía mensajes al servidor
-        pass
+        """Solo se acepta ping para keepalive."""
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
+            return
+        if data.get('tipo') == 'ping':
+            await self.send(json.dumps({'tipo': 'pong'}))
+
+    # ── Handlers del channel layer ──────────────────────────────────────────
 
     async def alerta_nueva(self, event):
-        """Handler para mensajes del tipo 'alerta.nueva' del channel layer."""
         await self.send(json.dumps({
-            'tipo': 'alerta_nueva',
-            'id': event['id'],
+            'tipo':        'alerta_nueva',
+            'id':          event['id'],
             'tipo_alerta': event['tipo_alerta'],
             'descripcion': event['descripcion'],
-            'fecha': event['fecha'],
+            'fecha':       event['fecha'],
         }))
 
     async def alerta_conflicto(self, event):
-        """Handler para conflictos de horario — solo managers."""
         await self.send(json.dumps({
-            'tipo': 'conflicto_horario',
+            'tipo':        'conflicto_horario',
             'descripcion': event['descripcion'],
-            'bloque_id': event['bloque_id'],
-            'fecha': event['fecha'],
+            'bloque_id':   event['bloque_id'],
+            'fecha':       event['fecha'],
         }))

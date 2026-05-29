@@ -1,4 +1,3 @@
-# alertas/models.py
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -6,19 +5,11 @@ from django.utils import timezone
 
 
 class Alerta(models.Model):
-    """
-    Notificación interna del sistema dirigida a un usuario.
-    Cubre conflictos de horario, disponibilidad y eventos del sistema.
-
-    Separada de 'notificaciones' (canal externo: email/SMS/push).
-    Esta app es la fuente de verdad de los eventos; notificaciones
-    se encarga solo de entregarlos por el canal adecuado.
-    """
 
     class TipoAlerta(models.TextChoices):
-        CONFLICTO     = 'CONFLICTO',     'Conflicto de horario'
-        DISPONIBILIDAD= 'DISPONIBILIDAD','Disponibilidad'
-        SISTEMA       = 'SISTEMA',       'Sistema'
+        CONFLICTO      = 'CONFLICTO',      'Conflicto de horario'
+        DISPONIBILIDAD = 'DISPONIBILIDAD', 'Disponibilidad'
+        SISTEMA        = 'SISTEMA',        'Sistema'
 
     class FormatoAlerta(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'
@@ -49,15 +40,15 @@ class Alerta(models.Model):
     )
     bloque_origen = models.ForeignKey(
         'bhorario.BloqueHorario',
-        on_delete=models.SET_NULL,      # CORRECCIÓN: era PROTECT — si el bloque se
-        null=True,                       # elimina, la alerta histórica debe conservarse.
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name='alertas',
     )
     destinatario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,        # CORRECCIÓN: era PROTECT — las alertas
-        related_name='alertas',          # no tienen sentido sin el usuario.
+        on_delete=models.CASCADE,
+        related_name='alertas',
         null=True,
         blank=True,
         help_text='Usuario al que va dirigida la alerta.',
@@ -87,11 +78,16 @@ class Alerta(models.Model):
             and not self.bloque_origen_id
         ):
             raise ValidationError(
-                'Las alertas de conflicto deben tener un bloque origen.'
+                {'bloque_origen': 'Las alertas de conflicto deben tener un bloque origen.'}
             )
 
+    def save(self, *args, **kwargs):
+        if not kwargs.get('update_fields'):
+            self.full_clean()
+        super().save(*args, **kwargs)
+
     def marcar_leida(self):
-        """Marca la alerta como leída si aún está pendiente o enviada."""
+        """Marca la alerta como leída si aún no lo está."""
         if self.estado != self.EstadoAlerta.LEIDA:
             self.estado = self.EstadoAlerta.LEIDA
             self.fecha_lectura = timezone.now()

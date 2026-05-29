@@ -7,11 +7,7 @@ class AulaService {
   // Lee el token en cada llamada para que siempre use el más reciente
   // (después del retry, TokenStorage ya tiene el nuevo access).
 
-  // static Future<String?> _token() => TokenStorage.getAccessToken();
-
-  static Future<String?> _token() async {
-  return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // tu token aquí
- }
+  static Future<String?> _token() => TokenStorage.getAccessToken();
 
   // ── Aulas ────────────────────────────────────────────────────────────────
 

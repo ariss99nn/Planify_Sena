@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme/theme.dart';
+import 'core/api/api_service.dart';
 
 import 'features/auth/providers/auth_provider.dart';
 import 'features/users/providers/user_provider.dart';
@@ -18,12 +19,20 @@ import 'features/auth/screens/reset_password_screen.dart';
 
 import 'features/home/screens/home_screen.dart';
 import 'features/users/screens/user_list_screen.dart';
+import 'features/users/screens/user_create_screen.dart';
+import 'features/users/screens/user_retrieve_update_screen.dart';
 import 'features/aulas/screens/aula_list_screen.dart';
 import 'features/aulas/screens/aula_detail_screen.dart';
 import 'features/aulas/screens/aula_form_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  const apiUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  if (apiUrl.isNotEmpty) {
+    ApiService.configure(baseUrl: apiUrl);
+  }
+
   runApp(const MyApp());
 }
 
@@ -50,12 +59,10 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.light,
         home: AuthGuard(child: const HomeScreen()),
 
-        // ✅ onGenerateRoute — maneja URLs con segmentos dinámicos (deep links)
         onGenerateRoute: (settings) {
           final uri = Uri.parse(settings.name ?? '');
           final segments = uri.pathSegments;
 
-          // /reset-password/TOKEN — viene del email
           if (segments.first == 'reset-password') {
             return MaterialPageRoute(
               builder: (_) => ResetPasswordScreen(),
@@ -66,7 +73,6 @@ class MyApp extends StatelessWidget {
             );
           }
 
-          // /aulas/123 — detalle por id
           if (segments.length == 2 && segments.first == 'aulas') {
             final id = int.tryParse(segments.last);
             if (id != null) {
@@ -77,21 +83,40 @@ class MyApp extends StatelessWidget {
             }
           }
 
+          if (segments.length == 2 && segments.first == 'users' && segments[1] == 'edit') {
+            return MaterialPageRoute(
+              builder: (_) => UserRetrieveUpdateScreen(userId: int.tryParse(segments.last) ?? 0),
+              settings: settings,
+            );
+          }
+
+          if (segments.length == 3 && segments.first == 'users' && segments[1] == 'edit') {
+            final id = int.tryParse(segments.last);
+            if (id != null) {
+              return MaterialPageRoute(
+                builder: (_) => UserRetrieveUpdateScreen(userId: id),
+                settings: settings,
+              );
+            }
+          }
+
           return null;
         },
 
         routes: {
-          '/login':          (_) => const LoginScreen(),
-          '/register':       (_) => const RegisterScreen(),
-          '/profile':        (_) => const ProfileScreen(),
-          '/home':           (_) => AuthGuard(child: const HomeScreen()),
-          '/users':          (_) => AuthGuard(child: const UserListScreen()),
-          '/reset-password': (_) => ResetPasswordScreen(),
+          '/login':           (_) => const LoginScreen(),
+          '/register':        (_) => const RegisterScreen(),
+          '/profile':         (_) => const ProfileScreen(),
+          '/home':            (_) => AuthGuard(child: const HomeScreen()),
+          '/users':           (_) => AuthGuard(child: const UserListScreen()),
+          '/users/create':    (_) => AuthGuard(child: const UserCreateScreen()),
+          '/forgot-password': (_) => ForgotPasswordScreen(),
+          '/reset-password':  (_) => ResetPasswordScreen(),
           '/verify-email': (ctx) => VerifyEmailScreen(
                 email: ModalRoute.of(ctx)!.settings.arguments as String? ?? '',
               ),
-          '/aulas':          (_) => AuthGuard(child: const AulaListScreen()),
-          '/aulas/nueva':    (_) => AuthGuard(child: const AulaFormScreen()),
+          '/aulas':           (_) => AuthGuard(child: const AulaListScreen()),
+          '/aulas/nueva':     (_) => AuthGuard(child: const AulaFormScreen()),
         },
       ),
     );

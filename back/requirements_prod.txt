@@ -1,3 +1,7 @@
+# Production dependencies for both Linux and Windows
+# uvloop is included only on non-Windows platforms
+# Use pip install -r requirements_prod.txt on Linux or Windows directly
+
 # === Core ===
 Django==6.0.3
 python-decouple==3.8
@@ -68,3 +72,4 @@ urllib3==2.6.3
 PyYAML==6.0.3
 attrs==25.4.0
 uvicorn==0.46.0
+uvloop==0.22.1 ; sys_platform != "win32"

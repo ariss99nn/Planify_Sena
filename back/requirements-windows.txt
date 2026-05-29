@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Windows-specific dependencies
+# uvloop is not supported on Windows and is intentionally excluded.

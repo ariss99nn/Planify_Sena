@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 
 from users.models.user import User
 from users.models.password_reset import PasswordReset
-from users.services.token_service import generate_uuid_token
+from users.services.token_service import generate_numeric_code
 from users.services.email_service import send_password_reset_email
 
 
@@ -26,22 +26,22 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
         PasswordReset.invalidate_previous_tokens(user)
 
-        token = generate_uuid_token()
+        code = generate_numeric_code()
         PasswordReset.objects.create(
             user=user,
-            token=token,
+            code=code,
             expires_at=PasswordReset.get_expiration_time(),
         )
 
-        send_password_reset_email(user.email, token)
+        send_password_reset_email(user.email, code)
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
-    Confirma el restablecimiento de contraseña con el token recibido por email.
+    Confirma el restablecimiento de contraseña con el código recibido por email.
     """
 
-    token = serializers.UUIDField()
+    code = serializers.RegexField(r'^\d{6}$')
     password = serializers.CharField(
         write_only=True,
         validators=[validate_password],
@@ -50,14 +50,14 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def validate(self, data):
         try:
             reset = PasswordReset.objects.get(
-                token=data['token'],
+                code=data['code'],
                 is_used=False,
             )
         except PasswordReset.DoesNotExist:
-            raise ValidationError("Token inválido o expirado.")
+            raise ValidationError("Código inválido o expirado.")
 
         if not reset.is_valid():
-            raise ValidationError("Token expirado.")
+            raise ValidationError("Código expirado.")
 
         data['reset_instance'] = reset
         return data

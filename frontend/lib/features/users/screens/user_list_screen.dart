@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/user_service.dart';
 import '../providers/user_provider.dart';
+import '../../../core/api/api_service.dart';
 import '../../../core/theme/theme.dart';
 
 class UserListScreen extends StatefulWidget {
@@ -214,37 +216,55 @@ class _UserListScreenState extends State<UserListScreen> {
                             color: AppTheme.textDark.withOpacity(0.7),
                           ),
                         ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: u.rol == 'ADMINISTRATIVO'
-                                ? LinearGradient(
-                                    colors: [AppTheme.greenPrimary, AppTheme.greenLight],
-                                  )
-                                : null,
-                            color: u.rol != 'ADMINISTRATIVO'
-                                ? Colors.grey.shade200
-                                : null,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            u.rol == 'ADMINISTRATIVO' ? 'Admin' : 'Usuario',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: u.rol == 'ADMINISTRATIVO'
-                                  ? AppTheme.white
-                                  : AppTheme.textDark,
+                        trailing: PopupMenuButton(
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              child: const Text('Editar'),
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/users/edit/${u.id}',
+                                );
+                              },
+                            ),
+                            PopupMenuItem(
+                              child: const Text(
+                                'Desactivar',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              onTap: () {
+                                _showDeactivateConfirmDialog(context, u);
+                              },
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: u.rol == 'ADMINISTRATIVO'
+                                  ? LinearGradient(
+                                      colors: [AppTheme.greenPrimary, AppTheme.greenLight],
+                                    )
+                                  : null,
+                              color: u.rol != 'ADMINISTRATIVO'
+                                  ? Colors.grey.shade200
+                                  : null,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              u.rol == 'ADMINISTRATIVO' ? 'Admin' : 'Usuario',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: u.rol == 'ADMINISTRATIVO'
+                                    ? AppTheme.white
+                                    : AppTheme.textDark,
+                              ),
                             ),
                           ),
                         ),
-                        onTap: () {
-                          // Aquí puedes mostrar un dialog con detalles del usuario
-                          _showUserDetailsDialog(context, u);
-                        },
                       ),
                     );
                   },
@@ -255,14 +275,7 @@ class _UserListScreenState extends State<UserListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Aquí puedes abrir un dialog para crear usuario
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text("Próximamente: Crear usuario"),
-              backgroundColor: AppTheme.greenPrimary,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          Navigator.pushNamed(context, '/users/create');
         },
         backgroundColor: AppTheme.greenPrimary,
         foregroundColor: AppTheme.white,
@@ -272,72 +285,56 @@ class _UserListScreenState extends State<UserListScreen> {
     );
   }
 
-  void _showUserDetailsDialog(BuildContext context, dynamic user) {
+  void _showDeactivateConfirmDialog(BuildContext context, dynamic user) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.greenPrimary, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 40,
-                  backgroundColor: AppTheme.greenSoft,
-                  child: Text(
-                    user.nombre.isNotEmpty ? user.nombre[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      fontSize: 32,
-                      color: AppTheme.greenPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                user.nombre,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.email, size: 16, color: AppTheme.greenPrimary),
-                  const SizedBox(width: 6),
-                  Text(user.email),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Chip(
-                label: Text(user.rol == 'ADMINISTRATIVO' ? 'Administrador' : 'Usuario'),
-                backgroundColor: AppTheme.greenSoft,
-                labelStyle: TextStyle(color: AppTheme.greenPrimary),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.greenPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                ),
-                child: const Text("Cerrar"),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Desactivar usuario'),
+        content: Text('¿Desactivar a ${user.nombre}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
           ),
-        ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deactivateUser(user.id);
+            },
+            child: const Text(
+              'Desactivar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _deactivateUser(int userId) async {
+    try {
+      await UserService.deactivateUser(userId);
+
+      if (!mounted) return;
+
+      context.read<UserProvider>().fetchUsers();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Usuario desactivado exitosamente'),
+          backgroundColor: AppTheme.greenPrimary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

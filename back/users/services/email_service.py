@@ -17,21 +17,23 @@ def send_verification_email(email: str, code: str, expiry_minutes: int = 10) -> 
     )
 
 
-def send_password_reset_email(email: str, token, expiry_minutes: int = None) -> None:
-    """Envía el enlace de restablecimiento de contraseña."""
-    # ✅ Lee el tiempo real desde settings para no mentirle al usuario
+def send_password_reset_email(email: str, code: str, expiry_minutes: int = None) -> None:
+    """Envía el código de restablecimiento de contraseña."""
     if expiry_minutes is None:
         expiry_hours = getattr(settings, 'PASSWORD_RESET_EXPIRY_HOURS', 2)
         expiry_minutes = int(expiry_hours) * 60
 
-    reset_url = f"{settings.FRONTEND_URL}/#/reset-password/{token}"
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+    reset_url = f'{frontend_url}/#/reset-password/{code}'
 
     send_mail(
         subject='Restablecer contraseña — Planify',
         message=(
-            f'Usa este enlace para restablecer tu contraseña:\n\n'
-            f'{reset_url}\n\n'
+            f'Tu código de restablecimiento de contraseña es: {code}\n'
             f'Expira en {expiry_minutes // 60} hora(s).\n\n'
+            f'Ve a este enlace para completar el restablecimiento sin copiar el código manualmente:\n'
+            f'{reset_url}\n\n'
+            f'Si no puedes abrir el enlace, copia el código en la app de Planify.\n'
             f'Si no solicitaste esto, ignora este mensaje.'
         ),
         from_email=settings.DEFAULT_FROM_EMAIL,

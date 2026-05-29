@@ -20,13 +20,48 @@ class UserService {
     );
   }
 
+  static Future<dynamic> createUser({
+    required String nombre,
+    required String apellido,
+    required String email,
+    required String password,
+    required String rol,
+  }) async {
+    final token = await TokenStorage.getAccessToken();
+
+    return await ApiService.post(
+      '/users/',
+      token: token,
+      data: {
+        'nombre': nombre.trim(),
+        'apellido': apellido.trim(),
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        'rol': rol,
+      },
+    );
+  }
+
+  static Future<dynamic> updateUser({
+    required int id,
+    required Map<String, dynamic> data,
+  }) async {
+    final token = await TokenStorage.getAccessToken();
+
+    return await ApiService.patch(
+      '/users/$id/',
+      token: token,
+      data: data,
+    );
+  }
+
   static Future<void> deactivateUser(int id) async {
     final token = await TokenStorage.getAccessToken();
 
-    await ApiService.patch(
+    await ApiService.post(
       '/users/$id/deactivate/',
       token: token,
-      data: {'confirmacion': true},
+      data: {},
     );
   }
 }

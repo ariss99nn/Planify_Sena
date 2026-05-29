@@ -4,8 +4,8 @@ import '../services/auth_service.dart';
 import '../../../core/api/api_service.dart';
 import '../../../core/theme/theme.dart';
 
-/// Pantalla que recibe el token desde el deep link:
-/// /reset-password?token=<uuid>
+/// Pantalla que recibe el código desde el deep link:
+/// /reset-password/CODE
 /// Configurar en AndroidManifest / Info.plist el esquema de URL.
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -15,7 +15,7 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final tokenCtrl  = TextEditingController();
+  final codeCtrl  = TextEditingController();
   final passCtrl   = TextEditingController();
   final pass2Ctrl  = TextEditingController();
   final _formKey   = GlobalKey<FormState>();
@@ -25,24 +25,36 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   bool obscure2 = true;
 
   @override
-    void didChangeDependencies() {
-        super.didChangeDependencies();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-  // 1. Desde arguments (navegación interna)
-  final args = ModalRoute.of(context)?.settings.arguments;
-  if (args is String && args.isNotEmpty) {
-    tokenCtrl.text = args;
-    return;
-  }
+    // 1. Desde arguments (navegación interna)
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty) {
+      codeCtrl.text = args;
+      return;
+    }
 
-  // 2. Desde el fragment de la URL del navegador
-  // URL: http://localhost:3000/#/reset-password/TOKEN
-  final fragment = Uri.base.fragment; // → /reset-password/TOKEN
-  final parts = fragment.split('/');  // → ['', 'reset-password', 'TOKEN']
-  if (parts.length >= 3 && parts[parts.length - 2] == 'reset-password') {
-    tokenCtrl.text = parts.last;
+    final uri = Uri.base;
+    final queryCode = uri.queryParameters['code'];
+    if (queryCode != null && queryCode.isNotEmpty) {
+      codeCtrl.text = queryCode;
+      return;
+    }
+
+    if (uri.pathSegments.length >= 2 && uri.pathSegments[uri.pathSegments.length - 2] == 'reset-password') {
+      codeCtrl.text = uri.pathSegments.last;
+      return;
+    }
+
+    final fragment = uri.fragment;
+    if (fragment.isNotEmpty) {
+      final parts = fragment.split('/');
+      if (parts.length >= 3 && parts[parts.length - 2] == 'reset-password') {
+        codeCtrl.text = parts.last;
+      }
+    }
   }
-}
 
   Future<void> resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
@@ -50,7 +62,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     try {
       await AuthService.confirmPasswordReset(
-        token:    tokenCtrl.text.trim(),
+        code:     codeCtrl.text.trim(),
         password: passCtrl.text,
       );
 
@@ -81,7 +93,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   void dispose() {
-    tokenCtrl.dispose();
+    codeCtrl.dispose();
     passCtrl.dispose();
     pass2Ctrl.dispose();
     super.dispose();
@@ -114,21 +126,21 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Ingresa el token recibido por correo y tu nueva contraseña.',
+                        'Ingresa el código recibido por correo y tu nueva contraseña.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, color: Color(0xFF558B5A)),
                       ),
                       const SizedBox(height: 28),
 
-                      // TOKEN
+                      // CÓDIGO
                       TextFormField(
-                        controller: tokenCtrl,
+                        controller: codeCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Token de recuperación',
+                          labelText: 'Código de recuperación',
                           prefixIcon: Icon(Icons.vpn_key_outlined),
                         ),
                         validator: (v) =>
-                            v == null || v.trim().isEmpty ? 'Ingresa el token' : null,
+                            v == null || v.trim().isEmpty ? 'Ingresa el código' : null,
                       ),
                       const SizedBox(height: 15),
 
@@ -179,6 +191,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         style: TextButton.styleFrom(foregroundColor: Colors.grey.shade600),
                         child: const Text('← Volver al login'),
                       ),
+
                     ],
                   ),
                 ),
@@ -190,3 +203,4 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 }
+
